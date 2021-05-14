@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	_ "image/png"
 	"log"
@@ -10,33 +11,18 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
+var Terminated = errors.New("terminated")
+
 type Game struct {
 	player  *GameObject
 	objects []*GameObject
 	keys    []ebiten.Key
 }
 
-type GameObject struct {
-	x         float64
-	y         float64
-	MoveSpeed float64
-	img       *ebiten.Image
-}
-
-func (obj *GameObject) moveLeft() {
-	log.Print(obj.x)
-	obj.x -= obj.MoveSpeed
-}
-
-func (obj *GameObject) moveRight() {
-	obj.x += obj.MoveSpeed
-}
-
-func (obj *GameObject) Jump() {
-
-}
-
 func (g *Game) Update() error {
+	if ebiten.IsKeyPressed(ebiten.KeyEscape) {
+		return Terminated
+	}
 	g.keys = inpututil.PressedKeys()
 	for _, key := range g.keys {
 		switch key {
@@ -67,6 +53,8 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeigh
 	return 640, 480
 }
 
+var game *Game
+
 func main() {
 	ebiten.SetWindowSize(640, 480)
 	ebiten.SetWindowTitle("Hello, World!")
@@ -77,8 +65,12 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	if err := ebiten.RunGame(&Game{player: &player, objects: objects}); err != nil {
+	game = &Game{player: &player, objects: objects}
+	if err := ebiten.RunGame(game); err != nil {
+		if err == Terminated {
+			// Regular termination
+			return
+		}
 		log.Fatal(err)
 	}
 }
