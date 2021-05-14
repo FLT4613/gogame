@@ -11,7 +11,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
-var Terminated = errors.New("terminated")
+var ErrTerminated = errors.New("terminated")
 
 type Game struct {
 	player  *GameObject
@@ -21,7 +21,7 @@ type Game struct {
 
 func (g *Game) Update() error {
 	if ebiten.IsKeyPressed(ebiten.KeyEscape) {
-		return Terminated
+		return ErrTerminated
 	}
 	g.keys = inpututil.PressedKeys()
 	for _, key := range g.keys {
@@ -67,7 +67,7 @@ func main() {
 	}
 	game = &Game{player: &player, objects: objects}
 	if err := ebiten.RunGame(game); err != nil {
-		if err == Terminated {
+		if err == ErrTerminated {
 			// Regular termination
 			return
 		}
