@@ -8,33 +8,28 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
 var ErrTerminated = errors.New("terminated")
 
+type Control interface {
+	control()
+}
+
 type Game struct {
-	player  *GameObject
-	objects []*GameObject
-	keys    []ebiten.Key
+	player        *GameObject
+	controlTarget Control
+	objects       []*GameObject
 }
 
 func (g *Game) Update() error {
 	if ebiten.IsKeyPressed(ebiten.KeyEscape) {
 		return ErrTerminated
 	}
-	g.keys = inpututil.PressedKeys()
-	for _, key := range g.keys {
-		switch key {
-		// case ebiten.KeyW:
-		// g.player.moveLeft()
-		case ebiten.KeyA:
-			g.player.moveLeft()
-		// case ebiten.KeyS:
-		// y += 1
-		case ebiten.KeyD:
-			g.player.moveRight()
-		}
+	g.controlTarget.control()
+
+	for _, object := range g.objects {
+		object.update()
 	}
 	return nil
 }
@@ -43,8 +38,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	ebitenutil.DebugPrint(screen, fmt.Sprintf("(%+v)", g.player))
 	op := &ebiten.DrawImageOptions{}
 	for _, object := range g.objects {
-		log.Print(object.x)
-		op.GeoM.Translate(object.x, object.y)
+		op.GeoM.Translate(object.pos.x, object.pos.y)
 		screen.DrawImage(object.img, op)
 	}
 }
@@ -59,16 +53,17 @@ func main() {
 	ebiten.SetWindowSize(640, 480)
 	ebiten.SetWindowTitle("Hello, World!")
 	i, _, err := ebitenutil.NewImageFromFile("assets/player.png")
-	player := GameObject{0, 0, 10, i}
-	objects := []*GameObject{&player}
+	player := newGameObject(
+		setImg(i),
+	)
+	objects := []*GameObject{player}
 
 	if err != nil {
 		log.Fatal(err)
 	}
-	game = &Game{player: &player, objects: objects}
+	game = &Game{player: player, objects: objects, controlTarget: player}
 	if err := ebiten.RunGame(game); err != nil {
 		if err == ErrTerminated {
-			// Regular termination
 			return
 		}
 		log.Fatal(err)
