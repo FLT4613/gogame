@@ -24,6 +24,8 @@ type (
 		pos       Point
 		vec       Point
 		acc       Point
+		isWalk    bool
+		direction Direction
 		MoveSpeed float64
 		img       *ebiten.Image
 		sm        *StateManager
@@ -51,33 +53,53 @@ func newGameObject(options ...Option) *GameObject {
 		option(&obj)
 	}
 	obj.MoveSpeed = 3
+	obj.acc.y = 0.02
 
 	obj.sm = newStateManager()
+
 	obj.sm.addState("Idle", onUpdate(func() { obj.vec.x = 0 }))
-	obj.sm.addState("MoveLeft", onUpdate(func() { obj.moveLeft() }))
-	obj.sm.addState("MoveRight", onUpdate(func() { obj.moveRight() }))
+	obj.sm.addState("Move", onUpdate(func() {
+		obj.walk()
+	}))
+	obj.sm.addTransition("Idle", "Move", func() bool {
+		return obj.isWalk
+	})
+	obj.sm.addTransition("Move", "Idle", func() bool {
+		return !obj.isWalk
+	})
+
 	obj.sm.changeState("Idle")
 	return &obj
 }
 
+type Direction int
+
+const (
+	Left Direction = iota
+	Right
+)
+
 func (obj *GameObject) control() {
 	if inpututil.IsKeyJustPressed(ebiten.KeyA) {
-		obj.sm.changeState("MoveLeft")
+		obj.direction = Left
+		obj.isWalk = true
 	} else if inpututil.IsKeyJustPressed(ebiten.KeyD) {
-		obj.sm.changeState("MoveRight")
+		obj.direction = Right
+		obj.isWalk = true
 	}
 	keys := inpututil.PressedKeys()
 	if len(keys) == 0 {
-		obj.sm.changeState("Idle")
+		obj.isWalk = false
 	}
 }
 
-func (obj *GameObject) moveLeft() {
-	obj.vec.x = -obj.MoveSpeed
-}
+func (obj *GameObject) walk() {
+	sign := 1.0
+	if obj.direction == Left {
+		sign = -1.0
+	}
 
-func (obj *GameObject) moveRight() {
-	obj.vec.x = obj.MoveSpeed
+	obj.vec.x = obj.MoveSpeed * sign
 }
 
 func (obj *GameObject) update() {
@@ -94,16 +116,21 @@ func (obj *GameObject) update() {
 type StateManager struct {
 	states       map[string]State
 	currentState string
+	transitions  map[string][]func()
 }
 
 func newStateManager() *StateManager {
 	var s StateManager
 	s.states = map[string]State{}
 	s.currentState = ""
+	s.transitions = map[string][]func(){}
 	return &s
 }
 
 func (sm *StateManager) update() {
+	for _, transition := range sm.transitions[sm.currentState] {
+		transition()
+	}
 	sm.states[sm.currentState].onUpdate()
 }
 
@@ -116,6 +143,18 @@ func (sm *StateManager) addState(newStateKey string, options ...StateOption) {
 		option(&s)
 	}
 	sm.states[newStateKey] = s
+}
+
+func (sm *StateManager) addTransition(oldStateKey string, newStateKey string, condition func() bool) {
+	_, ok := sm.transitions[oldStateKey]
+	if !ok {
+		sm.transitions[oldStateKey] = []func(){}
+	}
+	sm.transitions[oldStateKey] = append(sm.transitions[oldStateKey], func() {
+		if condition() {
+			sm.changeState(newStateKey)
+		}
+	})
 }
 
 func (sm *StateManager) changeState(key string) {
