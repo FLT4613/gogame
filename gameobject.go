@@ -21,14 +21,15 @@ func (p *Point) Add(p2 Point) *Point {
 
 type (
 	GameObject struct {
-		pos       Point
-		vec       Point
-		acc       Point
-		isWalk    bool
-		direction Direction
-		MoveSpeed float64
-		img       *ebiten.Image
-		sm        *StateManager
+		pos         Point
+		vec         Point
+		acc         Point
+		isWalk      bool
+		isJumpReady bool
+		direction   Direction
+		MoveSpeed   float64
+		img         *ebiten.Image
+		sm          *StateManager
 	}
 )
 
@@ -53,7 +54,7 @@ func newGameObject(options ...Option) *GameObject {
 		option(&obj)
 	}
 	obj.MoveSpeed = 3
-	obj.acc.y = 0.02
+	obj.acc.y = 0.05
 
 	obj.sm = newStateManager()
 
@@ -61,11 +62,40 @@ func newGameObject(options ...Option) *GameObject {
 	obj.sm.addState("Move", onUpdate(func() {
 		obj.walk()
 	}))
-	obj.sm.addTransition("Idle", "Move", func() bool {
+	obj.sm.addState("JumpStart", onUpdate(func() {
+		obj.vec.y = -20
+	}))
+	obj.sm.addState("AirIdle", onUpdate(func() {
+		if obj.acc.y == 0 {
+			obj.acc.y = 1
+		}
+
+		obj.vec.y += obj.acc.y
+		log.Print(obj.acc.y)
+	}))
+	obj.sm.addState("Land", onUpdate(func() {
+		obj.acc.y = 0
+		obj.vec.y = 0
+		obj.isJumpReady = false
+	}))
+
+	obj.sm.addTransition([]string{"Idle", "Land"}, "Move", func() bool {
 		return obj.isWalk
 	})
-	obj.sm.addTransition("Move", "Idle", func() bool {
+	obj.sm.addTransition([]string{"Move", "Land"}, "Idle", func() bool {
 		return !obj.isWalk
+	})
+	obj.sm.addTransition([]string{"Idle", "Move", "Land"}, "JumpStart", func() bool {
+		return obj.isJumpReady
+	})
+	obj.sm.addTransition([]string{"JumpStart"}, "AirIdle", func() bool {
+		return true
+	})
+	obj.sm.addTransition([]string{"AirIdle"}, "Land", func() bool {
+		return obj.pos.y > 400
+	})
+	obj.sm.addTransition([]string{"Idle", "Move", "Land"}, "AirIdle", func() bool {
+		return obj.pos.y < 400
 	})
 
 	obj.sm.changeState("Idle")
@@ -87,6 +117,9 @@ func (obj *GameObject) control() {
 		obj.direction = Right
 		obj.isWalk = true
 	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyW) {
+		obj.isJumpReady = true
+	}
 	keys := inpututil.PressedKeys()
 	if len(keys) == 0 {
 		obj.isWalk = false
@@ -104,12 +137,12 @@ func (obj *GameObject) walk() {
 
 func (obj *GameObject) update() {
 	obj.sm.update()
-	if obj.pos.y < 400 {
-		obj.vec.Add(obj.acc)
-	} else {
-		obj.vec.y = 0
-		obj.acc.y = 0
-	}
+	// if obj.pos.y < 400 {
+	obj.vec.Add(obj.acc)
+	// } else {
+	// 	obj.vec.y = 0
+	// 	obj.acc.y = 0
+	// }
 	obj.pos.Add(obj.vec)
 }
 
@@ -145,16 +178,18 @@ func (sm *StateManager) addState(newStateKey string, options ...StateOption) {
 	sm.states[newStateKey] = s
 }
 
-func (sm *StateManager) addTransition(oldStateKey string, newStateKey string, condition func() bool) {
-	_, ok := sm.transitions[oldStateKey]
-	if !ok {
-		sm.transitions[oldStateKey] = []func(){}
-	}
-	sm.transitions[oldStateKey] = append(sm.transitions[oldStateKey], func() {
-		if condition() {
-			sm.changeState(newStateKey)
+func (sm *StateManager) addTransition(sources []string, destination string, condition func() bool) {
+	for _, source := range sources {
+		_, ok := sm.transitions[source]
+		if !ok {
+			sm.transitions[source] = []func(){}
 		}
-	})
+		sm.transitions[source] = append(sm.transitions[source], func() {
+			if condition() {
+				sm.changeState(destination)
+			}
+		})
+	}
 }
 
 func (sm *StateManager) changeState(key string) {
