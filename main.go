@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"image/color"
 	_ "image/png"
 	"log"
 
@@ -17,9 +18,9 @@ type Control interface {
 }
 
 type Game struct {
-	player        *GameObject
+	player        GameObject
 	controlTarget Control
-	objects       []*GameObject
+	objects       []GameObject
 }
 
 func (g *Game) Update() error {
@@ -36,10 +37,8 @@ func (g *Game) Update() error {
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	ebitenutil.DebugPrint(screen, fmt.Sprintf("(%+v)", g.player))
-	op := &ebiten.DrawImageOptions{}
 	for _, object := range g.objects {
-		op.GeoM.Translate(object.pos.x, object.pos.y)
-		screen.DrawImage(object.img, op)
+		object.draw(screen)
 	}
 }
 
@@ -53,10 +52,17 @@ func main() {
 	ebiten.SetWindowSize(640, 480)
 	ebiten.SetWindowTitle("Hello, World!")
 	i, _, err := ebitenutil.NewImageFromFile("assets/player.png")
-	player := newGameObject(
+	player := newCharacter(
 		setImg(i),
 	)
-	objects := []*GameObject{player}
+
+	groundImage := ebiten.NewImage(50, 50)
+	groundImage.Fill(color.White)
+	ground := newGround(
+		setPos(100, 400),
+		setImg(groundImage),
+	)
+	objects := []GameObject{player, ground}
 
 	if err != nil {
 		log.Fatal(err)

@@ -5,6 +5,14 @@ import (
 	"log"
 )
 
+type StateOption func(*State)
+
+func onUpdate(body func()) StateOption {
+	return func(state *State) {
+		state.onUpdate = body
+	}
+}
+
 type StateManager struct {
 	states       map[string]State
 	currentState string

@@ -17,7 +17,12 @@ func (p *Point) Add(p2 Point) *Point {
 }
 
 type (
-	GameObject struct {
+	Ground struct {
+		pos Point
+		img *ebiten.Image
+	}
+
+	Character struct {
 		pos         Point
 		vec         Point
 		acc         Point
@@ -30,23 +35,49 @@ type (
 	}
 )
 
-type Option func(*GameObject)
-type StateOption func(*State)
-
-func onUpdate(body func()) StateOption {
-	return func(state *State) {
-		state.onUpdate = body
-	}
+type GameObject interface {
+	update()
+	draw(*ebiten.Image)
+	setImg(*ebiten.Image)
+	setPosition(float64, float64)
 }
+
+type Option func(GameObject)
 
 func setImg(i *ebiten.Image) Option {
-	return func(obj *GameObject) {
-		obj.img = i
+	return func(obj GameObject) {
+		obj.setImg(i)
 	}
 }
 
-func newGameObject(options ...Option) *GameObject {
-	obj := GameObject{}
+func setPos(x float64, y float64) Option {
+	return func(obj GameObject) {
+		obj.setPosition(x, y)
+	}
+}
+
+func newGround(options ...Option) *Ground {
+	obj := Ground{}
+	for _, option := range options {
+		option(&obj)
+	}
+	return &obj
+}
+
+func (obj *Ground) update() {}
+
+func (obj *Ground) draw(screen *ebiten.Image) {
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(obj.pos.x, obj.pos.y)
+	screen.DrawImage(obj.img, op)
+}
+
+func (obj *Ground) setImg(i *ebiten.Image) {
+	obj.img = i
+}
+
+func newCharacter(options ...Option) *Character {
+	obj := Character{}
 	for _, option := range options {
 		option(&obj)
 	}
@@ -101,7 +132,7 @@ const (
 	Right
 )
 
-func (obj *GameObject) control() {
+func (obj *Character) control() {
 	if inpututil.IsKeyJustPressed(ebiten.KeyA) {
 		obj.direction = Left
 		obj.isWalk = true
@@ -118,7 +149,7 @@ func (obj *GameObject) control() {
 	}
 }
 
-func (obj *GameObject) walk() {
+func (obj *Character) walk() {
 	sign := 1.0
 	if obj.direction == Left {
 		sign = -1.0
@@ -127,8 +158,28 @@ func (obj *GameObject) walk() {
 	obj.vec.x = obj.MoveSpeed * sign
 }
 
-func (obj *GameObject) update() {
+func (obj *Character) update() {
 	obj.sm.update()
 	// obj.vec.Add(obj.acc)
 	obj.pos.Add(obj.vec)
+}
+
+func (obj *Character) draw(screen *ebiten.Image) {
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(obj.pos.x, obj.pos.y)
+	screen.DrawImage(obj.img, op)
+}
+
+func (obj *Character) setImg(i *ebiten.Image) {
+	obj.img = i
+}
+
+func (obj *Character) setPosition(x float64, y float64) {
+	obj.pos.x = x
+	obj.pos.y = y
+}
+
+func (obj *Ground) setPosition(x float64, y float64) {
+	obj.pos.x = x
+	obj.pos.y = y
 }
