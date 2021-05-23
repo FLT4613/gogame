@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/SolarLune/resolv"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
@@ -17,81 +18,58 @@ func (p *Point) Add(p2 Point) *Point {
 }
 
 type (
-	Ground struct {
-		pos Point
-		img *ebiten.Image
-	}
-
-	Character struct {
+	Actor struct {
 		pos         Point
 		vec         Point
 		acc         Point
-		isWalk      bool
-		isJumpReady bool
 		direction   Direction
 		MoveSpeed   float64
 		img         *ebiten.Image
+		hitBox      *resolv.Rectangle
+		onFloor     bool
+		isWalk      bool
+		isJumpReady bool
 		sm          *StateManager
 	}
 )
 
 type GameObject interface {
 	update()
+	afterUpdate()
 	draw(*ebiten.Image)
-	setImg(*ebiten.Image)
-	setPosition(float64, float64)
 }
 
-type Option func(GameObject)
+type Option func(*Actor)
 
-func setImg(i *ebiten.Image) Option {
-	return func(obj GameObject) {
-		obj.setImg(i)
-	}
-}
+// func setHitbox(hitBox image.Rectangle) Option {
+// 	return func(obj *Actor) {
+// 		obj.hitBox = hitBox
+// 	}
+// }
 
-func setPos(x float64, y float64) Option {
-	return func(obj GameObject) {
-		obj.setPosition(x, y)
-	}
-}
-
-func newGround(options ...Option) *Ground {
-	obj := Ground{}
+func newActor(x float64, y float64, image *ebiten.Image, options ...Option) *Actor {
+	obj := Actor{}
+	obj.pos.x = x
+	obj.pos.y = y
+	obj.img = image
 	for _, option := range options {
 		option(&obj)
 	}
+	obj.hitBox = resolv.NewRectangle(int32(x), int32(y), int32(image.Bounds().Dx()), int32(image.Bounds().Dy()))
 	return &obj
 }
 
-func (obj *Ground) update() {}
-
-func (obj *Ground) draw(screen *ebiten.Image) {
-	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Translate(obj.pos.x, obj.pos.y)
-	screen.DrawImage(obj.img, op)
-}
-
-func (obj *Ground) setImg(i *ebiten.Image) {
-	obj.img = i
-}
-
-func newCharacter(options ...Option) *Character {
-	obj := Character{}
-	for _, option := range options {
-		option(&obj)
-	}
+func newPlayer(x float64, y float64, image *ebiten.Image, options ...Option) *Actor {
+	obj := newActor(x, y, image, options...)
 	obj.MoveSpeed = 3
-	// obj.acc.y = 0.005
-
 	obj.sm = newStateManager()
-
 	obj.sm.addState("Idle", onUpdate(func() { obj.vec.x = 0 }))
 	obj.sm.addState("Move", onUpdate(func() {
 		obj.walk()
 	}))
 	obj.sm.addState("JumpStart", onUpdate(func() {
-		obj.vec.y = -9
+		obj.onFloor = false
+		obj.vec.y = -10
 	}))
 	obj.sm.addState("AirIdle", onUpdate(func() {
 		obj.acc.y = 0.4
@@ -115,14 +93,14 @@ func newCharacter(options ...Option) *Character {
 		return true
 	})
 	obj.sm.addTransition([]string{"AirIdle"}, "Land", func() bool {
-		return obj.pos.y > 400
+		return obj.onFloor
 	})
-	obj.sm.addTransition([]string{"Idle", "Move", "Land"}, "AirIdle", func() bool {
-		return obj.pos.y < 400
+	obj.sm.addTransition([]string{"Idle", "Move"}, "AirIdle", func() bool {
+		return !obj.onFloor
 	})
 
 	obj.sm.changeState("Idle")
-	return &obj
+	return obj
 }
 
 type Direction int
@@ -132,7 +110,7 @@ const (
 	Right
 )
 
-func (obj *Character) control() {
+func (obj *Actor) control() {
 	if inpututil.IsKeyJustPressed(ebiten.KeyA) {
 		obj.direction = Left
 		obj.isWalk = true
@@ -149,7 +127,7 @@ func (obj *Character) control() {
 	}
 }
 
-func (obj *Character) walk() {
+func (obj *Actor) walk() {
 	sign := 1.0
 	if obj.direction == Left {
 		sign = -1.0
@@ -158,28 +136,19 @@ func (obj *Character) walk() {
 	obj.vec.x = obj.MoveSpeed * sign
 }
 
-func (obj *Character) update() {
-	obj.sm.update()
-	// obj.vec.Add(obj.acc)
+func (obj *Actor) update() {
+	if obj.sm != nil {
+		obj.sm.update()
+	}
+	obj.hitBox.SetXY(int32(obj.pos.x), int32(obj.pos.y))
+}
+
+func (obj *Actor) afterUpdate() {
 	obj.pos.Add(obj.vec)
 }
 
-func (obj *Character) draw(screen *ebiten.Image) {
+func (obj *Actor) draw(screen *ebiten.Image) {
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Translate(obj.pos.x, obj.pos.y)
 	screen.DrawImage(obj.img, op)
-}
-
-func (obj *Character) setImg(i *ebiten.Image) {
-	obj.img = i
-}
-
-func (obj *Character) setPosition(x float64, y float64) {
-	obj.pos.x = x
-	obj.pos.y = y
-}
-
-func (obj *Ground) setPosition(x float64, y float64) {
-	obj.pos.x = x
-	obj.pos.y = y
 }
