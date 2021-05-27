@@ -93,6 +93,7 @@ func newActor(x float64, y float64, image *ebiten.Image, options ...Option) *Act
 
 func newPlayer(x float64, y float64, image *ebiten.Image, options ...Option) *Actor {
 	obj := newActor(x, y, image, options...)
+	obj.hitBox = newHitBox(Point{38, 40}, setOffset(Point{10, 10}))
 	obj.MoveSpeed = 3
 	obj.sm = newStateManager()
 	obj.sm.addState("Idle", onUpdate(func() { obj.vec.x = 0 }))
@@ -172,7 +173,7 @@ func (obj *Actor) update() {
 	if obj.sm != nil {
 		obj.sm.update()
 	}
-	obj.hitBox.area.SetXY(int32(obj.pos.x), int32(obj.pos.y))
+	obj.hitBox.area.SetXY(int32(obj.pos.x)+int32(obj.hitBox.offset.x), int32(obj.pos.y)+int32(obj.hitBox.offset.y))
 }
 
 func (obj *Actor) afterUpdate() {
@@ -183,5 +184,8 @@ func (obj *Actor) draw(screen *ebiten.Image) {
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Translate(obj.pos.x, obj.pos.y)
 	screen.DrawImage(obj.image, op)
-	screen.DrawImage(obj.hitBox.image, op)
+
+	opImage := &ebiten.DrawImageOptions{}
+	opImage.GeoM.Translate(obj.pos.x+obj.hitBox.offset.x, obj.pos.y+obj.hitBox.offset.y)
+	screen.DrawImage(obj.hitBox.image, opImage)
 }
