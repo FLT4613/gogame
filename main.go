@@ -43,17 +43,17 @@ func (g *Game) Update() error {
 		others := resolv.NewSpace()
 		for _, other := range g.objects[i+1:] {
 			c := other.(*Actor)
-			others.Add(c.hitBox)
+			others.Add(c.hitBox.area)
 		}
 
 		// X-axis
-		res := others.Resolve(d.hitBox, int32(d.vec.x), 0)
+		res := others.Resolve(d.hitBox.area, int32(d.vec.x), 0)
 		if res.Colliding() {
 			d.vec.x = float64(res.ResolveX)
 		}
 
 		// Y-axis
-		res = others.Resolve(d.hitBox, 0, int32(d.vec.y)+1)
+		res = others.Resolve(d.hitBox.area, 0, int32(d.vec.y)+1)
 		if res.Colliding() {
 			d.onFloor = true
 			d.vec.y = float64(res.ResolveY)

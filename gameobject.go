@@ -1,6 +1,8 @@
 package main
 
 import (
+	"image/color"
+
 	"github.com/SolarLune/resolv"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -24,14 +26,50 @@ type (
 		acc         Point
 		direction   Direction
 		MoveSpeed   float64
-		img         *ebiten.Image
-		hitBox      *resolv.Rectangle
+		image       *ebiten.Image
+		hitBox      HitBox
 		onFloor     bool
 		isWalk      bool
 		isJumpReady bool
 		sm          *StateManager
 	}
 )
+
+type HitBoxOption func(*HitBox)
+type HitBox struct {
+	area   *resolv.Rectangle
+	offset Point
+	image  *ebiten.Image
+}
+
+func setSize(size Point) HitBoxOption {
+	return func(h *HitBox) {
+		h.area.SetXY(int32(size.x), int32(size.y))
+	}
+}
+
+func setOffset(offset Point) HitBoxOption {
+	return func(h *HitBox) {
+		h.offset.x = offset.x
+		h.offset.y = offset.y
+	}
+}
+
+func newHitBox(size Point, options ...HitBoxOption) HitBox {
+	area := resolv.NewRectangle(0, 0, int32(size.x), int32(size.y))
+	hitBox := HitBox{
+		area:   area,
+		offset: Point{0, 0},
+		image:  ebiten.NewImage(int(size.x), int(size.y)),
+	}
+	hitBox.image.Fill(color.RGBA{255, 0, 0, 100})
+
+	for _, option := range options {
+		option(&hitBox)
+	}
+
+	return hitBox
+}
 
 type GameObject interface {
 	update()
@@ -41,21 +79,15 @@ type GameObject interface {
 
 type Option func(*Actor)
 
-// func setHitbox(hitBox image.Rectangle) Option {
-// 	return func(obj *Actor) {
-// 		obj.hitBox = hitBox
-// 	}
-// }
-
 func newActor(x float64, y float64, image *ebiten.Image, options ...Option) *Actor {
 	obj := Actor{}
 	obj.pos.x = x
 	obj.pos.y = y
-	obj.img = image
+	obj.image = image
 	for _, option := range options {
 		option(&obj)
 	}
-	obj.hitBox = resolv.NewRectangle(int32(x), int32(y), int32(image.Bounds().Dx()), int32(image.Bounds().Dy()))
+	obj.hitBox = newHitBox(Point{float64(obj.image.Bounds().Dx()), float64(obj.image.Bounds().Dy())})
 	return &obj
 }
 
@@ -140,7 +172,7 @@ func (obj *Actor) update() {
 	if obj.sm != nil {
 		obj.sm.update()
 	}
-	obj.hitBox.SetXY(int32(obj.pos.x), int32(obj.pos.y))
+	obj.hitBox.area.SetXY(int32(obj.pos.x), int32(obj.pos.y))
 }
 
 func (obj *Actor) afterUpdate() {
@@ -150,5 +182,6 @@ func (obj *Actor) afterUpdate() {
 func (obj *Actor) draw(screen *ebiten.Image) {
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Translate(obj.pos.x, obj.pos.y)
-	screen.DrawImage(obj.img, op)
+	screen.DrawImage(obj.image, op)
+	screen.DrawImage(obj.hitBox.image, op)
 }
