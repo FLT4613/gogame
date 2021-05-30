@@ -49,7 +49,7 @@ func (g *Game) Update() error {
 		// X-axis
 		res := others.Resolve(d.hitBox.area, int32(d.vec.x), 0)
 		if res.Colliding() {
-			d.vec.x = float64(res.ResolveX)
+			d.pos.x -= float64(res.ResolveX) + d.vec.x
 		}
 
 		// Y-axis
