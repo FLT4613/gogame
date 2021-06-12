@@ -10,6 +10,7 @@ import (
 	"github.com/SolarLune/resolv"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
 var ErrTerminated = errors.New("terminated")
@@ -19,15 +20,21 @@ type Control interface {
 }
 
 type Game struct {
-	player        GameObject
-	backGround    *ebiten.Image
-	controlTarget Control
-	objects       []GameObject
+	player           GameObject
+	backGround       *ebiten.Image
+	controlTarget    Control
+	objects          []GameObject
+	displayCollision bool
 }
 
 func (g *Game) Update() error {
 	if ebiten.IsKeyPressed(ebiten.KeyEscape) {
 		return ErrTerminated
+	}
+
+	// Toggle displaying hitbox for debugging
+	if inpututil.IsKeyJustPressed(ebiten.KeyP) {
+		g.displayCollision = !g.displayCollision
 	}
 	g.controlTarget.control()
 
@@ -72,6 +79,13 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	for _, object := range g.objects {
 		object.draw(screen)
+		opImage := &ebiten.DrawImageOptions{}
+		if obj, ok := object.(*Actor); ok {
+			if g.displayCollision {
+				opImage.GeoM.Translate(obj.pos.x+obj.hitBox.offset.x, obj.pos.y+obj.hitBox.offset.y)
+				screen.DrawImage(obj.hitBox.image, opImage)
+			}
+		}
 	}
 }
 
