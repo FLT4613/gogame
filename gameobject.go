@@ -144,19 +144,21 @@ const (
 )
 
 func (obj *Actor) control() {
-	if inpututil.IsKeyJustPressed(ebiten.KeyA) {
-		obj.direction = Left
-		obj.isWalk = true
-	} else if inpututil.IsKeyJustPressed(ebiten.KeyD) {
-		obj.direction = Right
-		obj.isWalk = true
-	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyW) {
-		obj.isJumpReady = true
-	}
 	keys := inpututil.PressedKeys()
-	if len(keys) == 0 {
-		obj.isWalk = false
+
+	obj.isWalk = false
+
+	for _, key := range keys {
+		switch key {
+		case ebiten.KeyW:
+			obj.isJumpReady = true
+		case ebiten.KeyA:
+			obj.direction = Left
+			obj.isWalk = true
+		case ebiten.KeyD:
+			obj.direction = Right
+			obj.isWalk = true
+		}
 	}
 }
 
