@@ -186,8 +186,4 @@ func (obj *Actor) draw(screen *ebiten.Image) {
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Translate(obj.pos.x, obj.pos.y)
 	screen.DrawImage(obj.image, op)
-
-	opImage := &ebiten.DrawImageOptions{}
-	opImage.GeoM.Translate(obj.pos.x+obj.hitBox.offset.x, obj.pos.y+obj.hitBox.offset.y)
-	screen.DrawImage(obj.hitBox.image, opImage)
 }
